@@ -1,7 +1,8 @@
 import nibabel as nib
 import numpy as np
 
-def zscore_normalize(img):
+def normalize(img):
+    # Normalize the image to the range 0-255
 
     img_data = img.get_fdata()
     img_data = np.float32(img_data)
