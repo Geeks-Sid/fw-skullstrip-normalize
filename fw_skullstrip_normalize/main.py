@@ -8,6 +8,7 @@ from .run_level import get_analysis_run_level_and_hierarchy
 
 from .im_functions import *
 import nibabel as nib
+from flywheel import ApiException
 
 log = logging.getLogger(__name__)
 
@@ -18,6 +19,19 @@ def output_filename(in_fn: str, tag: str = "_ss_norm") -> str:
         if in_fn.lower().endswith(ext):
             return in_fn[: -len(ext)] + tag + in_fn[-len(ext):]
     raise ValueError(f"Input must be a NIfTI file (.nii or .nii.gz), got: {in_fn}")
+
+
+def get_or_create_output_acquisition(fw, session_path: list, label: str):
+    """Return the session's `label` acquisition, creating it only if the lookup says it is missing."""
+    try:
+        # a list path (not 'a/b/c') keeps labels containing '/' intact
+        return fw.lookup(session_path + [label]).reload()
+    except ApiException as exc:
+        if exc.status != 404:  # permissions/network/server errors must not create a duplicate
+            raise
+    acq = fw.lookup(session_path).add_acquisition(label=label).reload()
+    log.info(f"Created new acquisition: {acq.id}")
+    return acq
 
 def run(gtk_context: GearToolkitContext):
     """Main entrypoint
@@ -30,23 +44,13 @@ def run(gtk_context: GearToolkitContext):
     # get the Flywheel hierarchy for the run
     destination_id = gtk_context.destination["id"]
     hierarchy = get_analysis_run_level_and_hierarchy(fw, destination_id)
-    acq_label = hierarchy['acquisition_label']
-    sub_label = hierarchy['subject_label']
-    ses_label = hierarchy['session_label']
-    project_label = hierarchy['project_label']
-    group_name = hierarchy['group']
-
-    # get the output acqusition container
-    output_acq_label = 'processed'
-    try:
-        acq = fw.lookup(f'{group_name}/{project_label}/{sub_label}/{ses_label}/{output_acq_label}')
-        acq = acq.reload()
-    except:
-        # if the acquisition does not exist, create it
-        session = fw.lookup(f'{group_name}/{project_label}/{sub_label}/{ses_label}')
-        acq = session.add_acquisition(label=output_acq_label)
-        acq = acq.reload()
-        log.info(f'Created new acquisition: {acq.id}')
+    session_path = [
+        hierarchy["group"],
+        hierarchy["project_label"],
+        hierarchy["subject_label"],
+        hierarchy["session_label"],
+    ]
+    acq = get_or_create_output_acquisition(fw, session_path, "processed")
 
     # get the input files
     im_file_path = gtk_context.get_input_path("input-file")
