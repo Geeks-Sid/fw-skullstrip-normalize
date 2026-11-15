@@ -30,18 +30,20 @@ def get_analysis_run_level_and_hierarchy(gtk_context_client, destination_id):
     run_level = 'acquisition'
     destination = gtk_context_client.get(destination_id)
 
-    if destination.container_type == run_level:
+    if destination.container_type != run_level:
+        # returning an all-None hierarchy only surfaces later as a lookup of 'None/None/...'
+        raise ValueError(
+            f"The gear destination must be an {run_level}, got {destination.container_type!r}."
+        )
 
-        hierarchy["group"] = destination.parents["group"]
+    hierarchy["group"] = destination.parents["group"]
 
-        for level in ["project", "subject", "session", "acquisition"]:
-            if level == run_level:
-                hierarchy[f"{level}_label"] = destination.label
-            elif destination.parents[level]:
-                container = gtk_context_client.get(destination.parents[level])
-                hierarchy[f"{level}_label"] = container.label
-    else:
-        log.error("The destination_id must reference a valid session container.")
+    for level in ["project", "subject", "session", "acquisition"]:
+        if level == run_level:
+            hierarchy[f"{level}_label"] = destination.label
+        elif destination.parents[level]:
+            container = gtk_context_client.get(destination.parents[level])
+            hierarchy[f"{level}_label"] = container.label
 
     log.info(f"Gear run level and hierarchy labels: {hierarchy}")
     return hierarchy
