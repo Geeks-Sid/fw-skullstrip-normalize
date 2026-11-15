@@ -48,8 +48,7 @@ def run(gtk_context: GearToolkitContext):
     img = nib.load(im_file_path)
     mask = nib.load(mask_file_path)
 
-    normed_img = zscore_normalize(img)
-    new_img = skullstrip(normed_img, mask)
+    new_img = normalize(skullstrip(img, mask))
 
     in_fn = os.path.basename(im_file_path) # get just the base file name
     if 'gz' in in_fn.split('.nii')[-1]:
