@@ -24,6 +24,11 @@ def normalize(img):
     return normalized_image
 
 def skullstrip(img, mask):
+    # a broadcastable-but-wrong mask, or one on a different grid, would silently corrupt the output
+    if img.shape != mask.shape:
+        raise ValueError(f"Mask shape {mask.shape} does not match image shape {img.shape}.")
+    if not np.allclose(img.affine, mask.affine, atol=1e-3):
+        raise ValueError("Mask and image affines differ: the mask is not in the image's space.")
 
     img_data = img.get_fdata()
     # img_data = np.float32(img_data)

@@ -29,3 +29,20 @@ def test_skullstrip_does_not_leak_nan_or_inf_from_outside_the_mask():
     out = skullstrip(nii(data), nii(mask)).get_fdata()
 
     assert np.isfinite(out).all()  # NaN * 0 is NaN
+
+
+@pytest.mark.parametrize("mask_shape", [(2, 2, 1), (2, 2, 3), (2, 2)])  # (2,2,1) broadcasts; must still fail
+def test_skullstrip_rejects_mask_with_different_shape(mask_shape):
+    with pytest.raises(ValueError, match="shape"):
+        skullstrip(nii(np.ones((2, 2, 2))), nii(np.ones(mask_shape)))
+
+
+def test_skullstrip_rejects_mask_in_a_different_space_but_tolerates_float_noise():
+    img = nii(np.ones((2, 2, 2)))
+    shifted = np.eye(4)
+    shifted[0, 3] = 5.0  # 5 mm translation: same grid size, different place
+    with pytest.raises(ValueError, match="affine"):
+        skullstrip(img, nii(np.ones((2, 2, 2)), shifted))
+
+    noisy = np.eye(4) + 1e-7
+    skullstrip(img, nii(np.ones((2, 2, 2)), noisy))  # must not raise
