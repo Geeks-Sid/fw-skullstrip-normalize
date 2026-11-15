@@ -2,7 +2,6 @@ import logging
 import zipfile
 import os
 import shutil
-import json
 
 from flywheel_gear_toolkit import GearToolkitContext
 from .run_level import get_analysis_run_level_and_hierarchy
@@ -41,13 +40,9 @@ def run(gtk_context: GearToolkitContext):
         acq = acq.reload()
         log.info(f'Created new acquisition: {acq.id}')
 
-    # get the input file
-    CONFIG_FILE_PATH = '/flywheel/v0/config.json'
-    with open(CONFIG_FILE_PATH) as config_file:
-        config = json.load(config_file)
-
-    im_file_path = config['inputs']['input-file']['location']['path'] # input path in the gear container
-    mask_file_path = config['inputs']['brain-mask']['location']['path'] # input path in the gear container
+    # get the input files
+    im_file_path = gtk_context.get_input_path("input-file")
+    mask_file_path = gtk_context.get_input_path("brain-mask")
 
     print(f'Processing file: {im_file_path}')
     img = nib.load(im_file_path)
