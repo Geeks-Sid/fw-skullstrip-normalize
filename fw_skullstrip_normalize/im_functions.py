@@ -14,6 +14,10 @@ def normalize(img):
     # min_val = img_data.min()
     # img_data[img_data <= min_val] = min_val
 
+    # constant data (e.g. an empty mask) divides by zero, and NaN/inf poisons the percentiles;
+    # both cast to garbage int16 silently, so fail instead of writing a bad image
+    if not (np.isfinite(MP_RC) and np.isfinite(min_val)) or MP_RC <= min_val:
+        raise ValueError("Cannot normalize: image is constant or empty (empty brain mask?) or has NaN/inf values.")
     img_data[img_data > MP_RC] = MP_RC
 
     img_data = ((img_data - min_val) * 255.0) / (MP_RC - min_val)

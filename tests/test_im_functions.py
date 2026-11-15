@@ -46,3 +46,25 @@ def test_skullstrip_rejects_mask_in_a_different_space_but_tolerates_float_noise(
 
     noisy = np.eye(4) + 1e-7
     skullstrip(img, nii(np.ones((2, 2, 2)), noisy))  # must not raise
+
+
+def test_normalize_scales_to_0_255_and_clips_at_99_99th_percentile():
+    # >10k voxels so a single outlier lies above the 99.99th percentile
+    data = np.arange(22**3, dtype=np.float32).reshape(22, 22, 22)
+    data.flat[0] = 1e6  # clipped to the percentile instead of squashing the rest into 0-1
+
+    out = normalize(nii(data)).get_fdata()
+
+    assert out.min() == 0
+    assert out.max() == 255
+    assert 238 <= out.flat[10000] <= 241  # (10000 - min) / (p99.99 - min) * 255, unaffected by the outlier
+
+
+@pytest.mark.parametrize(
+    "bad",
+    [np.zeros((2, 2, 2)), np.full((2, 2, 2), 7.0), np.array([[[np.nan, 1], [2, 3]], [[4, 5], [6, 7]]])],
+    ids=["all-zero (empty mask)", "constant", "nan"],
+)
+def test_normalize_refuses_data_it_cannot_scale(bad):
+    with pytest.raises(ValueError, match="Cannot normalize"):
+        normalize(nii(bad))
