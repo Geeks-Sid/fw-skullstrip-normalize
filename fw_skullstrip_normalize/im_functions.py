@@ -23,9 +23,12 @@ def normalize(img):
     img_data = ((img_data - min_val) * 255.0) / (MP_RC - min_val)
     img_data = np.rint(img_data).astype('int16')
 
-    normalized_image = nib.Nifti1Image(img_data, img.affine, img.header)
+    # a header copied from the input keeps its dtype (often float32/64), so int16 data would be
+    # written back as floats on disk
+    header = img.header.copy()
+    header.set_data_dtype(np.int16)
 
-    return normalized_image
+    return nib.Nifti1Image(img_data, img.affine, header)
 
 def skullstrip(img, mask):
     # a broadcastable-but-wrong mask, or one on a different grid, would silently corrupt the output

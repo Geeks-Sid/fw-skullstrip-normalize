@@ -68,3 +68,15 @@ def test_normalize_scales_to_0_255_and_clips_at_99_99th_percentile():
 def test_normalize_refuses_data_it_cannot_scale(bad):
     with pytest.raises(ValueError, match="Cannot normalize"):
         normalize(nii(bad))
+
+
+def test_normalize_output_is_int16_on_disk_even_for_float_input(tmp_path):
+    src = nii(np.linspace(0, 500, 64, dtype=np.float32).reshape(4, 4, 4))
+    assert src.get_data_dtype() == np.float32
+
+    nib.save(normalize(src), str(tmp_path / "out.nii.gz"))
+    back = nib.load(str(tmp_path / "out.nii.gz"))
+
+    assert back.get_data_dtype() == np.int16
+    assert np.asanyarray(back.dataobj).max() == 255
+    assert src.get_data_dtype() == np.float32  # the input's header is not mutated
