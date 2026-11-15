@@ -20,17 +20,27 @@
   "inputs": {
     "input-file": {
       "base": "file",
-      "description": "Input image.",
-      "optional": false
+      "description": "Input image (NIfTI).",
+      "optional": false,
+      "type": {
+        "enum": [
+          "nifti"
+        ]
+      }
     },
     "brain-mask": {
       "base": "file",
-      "description": "Binary brain mask.",
-      "optional": false
+      "description": "Binary brain mask (NIfTI) in the same space and grid as the input image.",
+      "optional": false,
+      "type": {
+        "enum": [
+          "nifti"
+        ]
+      }
     },
     "api-key": {
       "base": "api-key",
-      "read-only": true
+      "read-only": false
     }
   },
   "config": {

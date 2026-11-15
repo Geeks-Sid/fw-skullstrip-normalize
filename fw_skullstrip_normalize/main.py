@@ -1,77 +1,88 @@
 import logging
-import zipfile
 import os
-import shutil
-import json
+import tempfile
 
-from fw_core_client import CoreClient
-from flywheel_gear_toolkit import GearToolkitContext
-import flywheel
-from .run_level import get_analysis_run_level_and_hierarchy
-
-from .im_functions import *
 import nibabel as nib
+from flywheel import ApiException
+from flywheel_gear_toolkit import GearToolkitContext
+
+from . import __version__
+from .im_functions import normalize, skullstrip
+from .run_level import get_analysis_run_level_and_hierarchy
 
 log = logging.getLogger(__name__)
 
-fw_context = flywheel.GearContext()
-fw = fw_context.client
 
-def run(client: CoreClient, gtk_context: GearToolkitContext):
+def output_filename(in_fn: str, tag: str = "_ss_norm") -> str:
+    """Insert `tag` before the NIfTI extension; refuse anything that is not .nii/.nii.gz."""
+    for ext in (".nii.gz", ".nii"):
+        if in_fn.lower().endswith(ext):
+            return in_fn[: -len(ext)] + tag + in_fn[-len(ext):]
+    raise ValueError(f"Input must be a NIfTI file (.nii or .nii.gz), got: {in_fn}")
+
+
+def get_or_create_output_acquisition(fw, session_path: list, label: str):
+    """Return the session's `label` acquisition, creating it only if the lookup says it is missing."""
+    try:
+        # a list path (not 'a/b/c') keeps labels containing '/' intact
+        return fw.lookup(session_path + [label]).reload()
+    except ApiException as exc:
+        if exc.status != 404:  # permissions/network/server errors must not create a duplicate
+            raise
+    acq = fw.lookup(session_path).add_acquisition(label=label).reload()
+    log.info(f"Created new acquisition: {acq.id}")
+    return acq
+
+def run(gtk_context: GearToolkitContext):
     """Main entrypoint
 
     Args:
-        client (CoreClient): Client to connect to API
         gtk_context (GearToolkitContext)
     """
-    # get the Flywheel hierarchy for the run
-    destination_id = gtk_context.destination["id"]
-    hierarchy = get_analysis_run_level_and_hierarchy(gtk_context.client, destination_id)
-    acq_label = hierarchy['acquisition_label']
-    sub_label = hierarchy['subject_label']
-    ses_label = hierarchy['session_label']
-    project_label = hierarchy['project_label']
-    group_name = hierarchy['group']
+    fw = gtk_context.client
 
-    # get the output acqusition container
-    output_acq_label = 'processed'
-    try:
-        acq = fw.lookup(f'{group_name}/{project_label}/{sub_label}/{ses_label}/{output_acq_label}')
-        acq = acq.reload()
-    except:
-        # if the acquisition does not exist, create it
-        session = fw.lookup(f'{group_name}/{project_label}/{sub_label}/{ses_label}')
-        acq = session.add_acquisition(label=output_acq_label)
-        acq = acq.reload()
-        log.info(f'Created new acquisition: {acq.id}')
+    # get the input files
+    im_file_path = gtk_context.get_input_path("input-file")
+    mask_file_path = gtk_context.get_input_path("brain-mask")
+    out_fn = output_filename(os.path.basename(im_file_path))
 
-    # get the input file
-    CONFIG_FILE_PATH = '/flywheel/v0/config.json'
-    with open(CONFIG_FILE_PATH) as config_file:
-        config = json.load(config_file)
-
-    im_file_path = config['inputs']['input-file']['location']['path'] # input path in the gear container
-    mask_file_path = config['inputs']['brain-mask']['location']['path'] # input path in the gear container
-
-    print(f'Processing file: {im_file_path}')
+    # Process before touching Flywheel: a bad input must not leave an empty 'processed' acquisition.
+    log.info(f"Processing file: {im_file_path}")
     img = nib.load(im_file_path)
     mask = nib.load(mask_file_path)
+    new_img = normalize(skullstrip(img, mask))
 
-    normed_img = zscore_normalize(img)
-    new_img = skullstrip(normed_img, mask)
+    # get the Flywheel hierarchy for the run
+    destination_id = gtk_context.destination["id"]
+    hierarchy = get_analysis_run_level_and_hierarchy(fw, destination_id)
+    session_path = [
+        hierarchy["group"],
+        hierarchy["project_label"],
+        hierarchy["subject_label"],
+        hierarchy["session_label"],
+    ]
+    acq = get_or_create_output_acquisition(fw, session_path, "processed")
 
-    in_fn = os.path.basename(im_file_path) # get just the base file name
-    if 'gz' in in_fn.split('.nii')[-1]:
-        file_ending = '.nii.gz'
-    else:
-        file_ending = '.nii'
-    out_fn = in_fn.split('.nii')[0] + '_ss_norm' + file_ending  # append _ss to the original file name
-    out_path = f'output/{out_fn}'
+    if acq.get_file(out_fn):  # uploading the same name replaces the file; make that visible
+        log.warning(f"'{out_fn}' already exists in acquisition {acq.id} and will be replaced.")
 
-    nib.save(new_img, out_path)
+    # The SDK names the upload after the file on disk (upload_file has no `name` argument),
+    # so write it under its final name in a private temp dir that is removed afterwards.
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        out_path = os.path.join(tmp_dir, out_fn)
+        nib.save(new_img, out_path)
 
-    # upload to acquisition in the same session
-    acq.upload_file(out_path, name=out_fn)
+        # upload to acquisition in the same session
+        acq.upload_file(out_path)
 
-    # remove temp files
-    shutil.rmtree('output', ignore_errors=True)
+    # provenance: record what produced the file so outputs can be audited later
+    acq.update_file_info(
+        out_fn,
+        {
+            "skullstrip_normalize": {
+                "source_file": os.path.basename(im_file_path),
+                "brain_mask": os.path.basename(mask_file_path),
+                "gear_version": __version__,
+            }
+        },
+    )
