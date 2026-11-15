@@ -4,7 +4,6 @@ import os
 import shutil
 import json
 
-from fw_core_client import CoreClient
 from flywheel_gear_toolkit import GearToolkitContext
 from .run_level import get_analysis_run_level_and_hierarchy
 
@@ -13,11 +12,10 @@ import nibabel as nib
 
 log = logging.getLogger(__name__)
 
-def run(client: CoreClient, gtk_context: GearToolkitContext):
+def run(gtk_context: GearToolkitContext):
     """Main entrypoint
 
     Args:
-        client (CoreClient): Client to connect to API
         gtk_context (GearToolkitContext)
     """
     fw = gtk_context.client

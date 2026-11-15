@@ -5,7 +5,6 @@ WORKDIR ${FLYWHEEL}
 
 # install main dependenices
 RUN pip install flywheel_gear_toolkit
-RUN pip install fw_core_client
 RUN pip install flywheel-sdk
 
 
