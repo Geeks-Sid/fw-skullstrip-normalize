@@ -1,7 +1,7 @@
 import logging
 import zipfile
 import os
-import shutil
+import tempfile
 
 from flywheel_gear_toolkit import GearToolkitContext
 from .run_level import get_analysis_run_level_and_hierarchy
@@ -56,12 +56,12 @@ def run(gtk_context: GearToolkitContext):
     else:
         file_ending = '.nii'
     out_fn = in_fn.split('.nii')[0] + '_ss_norm' + file_ending  # append _ss to the original file name
-    out_path = f'output/{out_fn}'
 
-    nib.save(new_img, out_path)
+    # The SDK names the upload after the file on disk (upload_file has no `name` argument),
+    # so write it under its final name in a private temp dir that is removed afterwards.
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        out_path = os.path.join(tmp_dir, out_fn)
+        nib.save(new_img, out_path)
 
-    # upload to acquisition in the same session
-    acq.upload_file(out_path, name=out_fn)
-
-    # remove temp files
-    shutil.rmtree('output', ignore_errors=True)
+        # upload to acquisition in the same session
+        acq.upload_file(out_path)

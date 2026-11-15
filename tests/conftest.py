@@ -30,7 +30,6 @@ def make_images(tmp_path, in_name=IN_NAME):
 def gear(tmp_path, monkeypatch):
     """A fake GearToolkitContext for an acquisition-level run, plus the 'processed' acquisition mock."""
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "output").mkdir()
     in_path, mask_path = make_images(tmp_path)
 
     parents = {"group": "grp", "project": "proj", "subject": "sub", "session": "ses"}
@@ -48,7 +47,8 @@ def gear(tmp_path, monkeypatch):
     # capture what would be uploaded: the file is temporary
     acq.uploaded = {}
 
-    def capture(path, **kwargs):
+    def capture(path):  # strict like the SDK: upload_file(name=...) raises TypeError there
+        acq.uploaded["path"] = path
         acq.uploaded["name"] = os.path.basename(path)
         acq.uploaded["data"] = np.asarray(nib.load(path).dataobj)
 
