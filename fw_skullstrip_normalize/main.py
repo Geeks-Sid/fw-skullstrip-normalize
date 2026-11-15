@@ -6,16 +6,12 @@ import json
 
 from fw_core_client import CoreClient
 from flywheel_gear_toolkit import GearToolkitContext
-import flywheel
 from .run_level import get_analysis_run_level_and_hierarchy
 
 from .im_functions import *
 import nibabel as nib
 
 log = logging.getLogger(__name__)
-
-fw_context = flywheel.GearContext()
-fw = fw_context.client
 
 def run(client: CoreClient, gtk_context: GearToolkitContext):
     """Main entrypoint
@@ -24,9 +20,11 @@ def run(client: CoreClient, gtk_context: GearToolkitContext):
         client (CoreClient): Client to connect to API
         gtk_context (GearToolkitContext)
     """
+    fw = gtk_context.client
+
     # get the Flywheel hierarchy for the run
     destination_id = gtk_context.destination["id"]
-    hierarchy = get_analysis_run_level_and_hierarchy(gtk_context.client, destination_id)
+    hierarchy = get_analysis_run_level_and_hierarchy(fw, destination_id)
     acq_label = hierarchy['acquisition_label']
     sub_label = hierarchy['subject_label']
     ses_label = hierarchy['session_label']

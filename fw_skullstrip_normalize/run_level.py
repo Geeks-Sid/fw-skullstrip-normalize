@@ -5,18 +5,13 @@
 
 import logging
 
-# from flywheel import ApiException
-import flywheel
-fw_context = flywheel.GearContext()
-fw = fw_context.client
-
 log = logging.getLogger(__name__)
 
 
 def get_analysis_run_level_and_hierarchy(gtk_context_client, destination_id):
     """Determine the level at which a job is running, given a destination
     Args:
-        fw (gear_toolkit.GearToolkitContext.client): flywheel client
+        gtk_context_client (gear_toolkit.GearToolkitContext.client): flywheel client
         destination_id (id): id of the destination of the gear
     Returns:
         hierarchy (dict): containing the run_level and labels for the
@@ -34,19 +29,14 @@ def get_analysis_run_level_and_hierarchy(gtk_context_client, destination_id):
 
     run_level = 'acquisition'
     destination = gtk_context_client.get(destination_id)
-    analysis_id = fw_context.destination['id']
 
-    # print(destination)
     if destination.container_type == run_level:
 
         hierarchy["group"] = destination.parents["group"]
 
         for level in ["project", "subject", "session", "acquisition"]:
             if level == run_level:
-                analysis_container = fw.get(analysis_id)
-                # print(analysis_container)
-                # container = gtk_context_client.get(analysis_container.parent['id'])
-                hierarchy[f"{level}_label"] = analysis_container.label # if gear run at session level, this is the session label
+                hierarchy[f"{level}_label"] = destination.label
             elif destination.parents[level]:
                 container = gtk_context_client.get(destination.parents[level])
                 hierarchy[f"{level}_label"] = container.label
