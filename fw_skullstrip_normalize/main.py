@@ -1,14 +1,13 @@
 import logging
-import zipfile
 import os
 import tempfile
 
-from flywheel_gear_toolkit import GearToolkitContext
-from .run_level import get_analysis_run_level_and_hierarchy
-
-from .im_functions import *
 import nibabel as nib
 from flywheel import ApiException
+from flywheel_gear_toolkit import GearToolkitContext
+
+from .im_functions import normalize, skullstrip
+from .run_level import get_analysis_run_level_and_hierarchy
 
 log = logging.getLogger(__name__)
 
