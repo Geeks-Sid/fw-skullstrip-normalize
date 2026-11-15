@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
+from nibabel.filebasedimages import ImageFileError
 from flywheel import ApiException
 
 from fw_skullstrip_normalize.main import output_filename, run
@@ -84,4 +85,14 @@ def test_run_does_not_create_acquisition_on_other_api_errors(gear):
         run(gear.ctx)
 
     gear.client.lookup.assert_called_once()  # no fallback lookup of the session to create into
+    gear.acq.upload_file.assert_not_called()
+
+
+def test_run_leaves_flywheel_untouched_when_processing_fails(gear):
+    gear.in_path.write_bytes(b"not a nifti")
+
+    with pytest.raises(ImageFileError):
+        run(gear.ctx)
+
+    gear.client.lookup.assert_not_called()  # no empty 'processed' acquisition left behind
     gear.acq.upload_file.assert_not_called()

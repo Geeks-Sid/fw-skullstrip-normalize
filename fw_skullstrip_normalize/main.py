@@ -41,6 +41,17 @@ def run(gtk_context: GearToolkitContext):
     """
     fw = gtk_context.client
 
+    # get the input files
+    im_file_path = gtk_context.get_input_path("input-file")
+    mask_file_path = gtk_context.get_input_path("brain-mask")
+    out_fn = output_filename(os.path.basename(im_file_path))
+
+    # Process before touching Flywheel: a bad input must not leave an empty 'processed' acquisition.
+    log.info(f"Processing file: {im_file_path}")
+    img = nib.load(im_file_path)
+    mask = nib.load(mask_file_path)
+    new_img = normalize(skullstrip(img, mask))
+
     # get the Flywheel hierarchy for the run
     destination_id = gtk_context.destination["id"]
     hierarchy = get_analysis_run_level_and_hierarchy(fw, destination_id)
@@ -51,18 +62,6 @@ def run(gtk_context: GearToolkitContext):
         hierarchy["session_label"],
     ]
     acq = get_or_create_output_acquisition(fw, session_path, "processed")
-
-    # get the input files
-    im_file_path = gtk_context.get_input_path("input-file")
-    mask_file_path = gtk_context.get_input_path("brain-mask")
-
-    print(f'Processing file: {im_file_path}')
-    img = nib.load(im_file_path)
-    mask = nib.load(mask_file_path)
-
-    new_img = normalize(skullstrip(img, mask))
-
-    out_fn = output_filename(os.path.basename(im_file_path))
 
     # The SDK names the upload after the file on disk (upload_file has no `name` argument),
     # so write it under its final name in a private temp dir that is removed afterwards.
