@@ -6,6 +6,7 @@ import nibabel as nib
 from flywheel import ApiException
 from flywheel_gear_toolkit import GearToolkitContext
 
+from . import __version__
 from .im_functions import normalize, skullstrip
 from .run_level import get_analysis_run_level_and_hierarchy
 
@@ -62,6 +63,9 @@ def run(gtk_context: GearToolkitContext):
     ]
     acq = get_or_create_output_acquisition(fw, session_path, "processed")
 
+    if acq.get_file(out_fn):  # uploading the same name replaces the file; make that visible
+        log.warning(f"'{out_fn}' already exists in acquisition {acq.id} and will be replaced.")
+
     # The SDK names the upload after the file on disk (upload_file has no `name` argument),
     # so write it under its final name in a private temp dir that is removed afterwards.
     with tempfile.TemporaryDirectory() as tmp_dir:
@@ -70,3 +74,15 @@ def run(gtk_context: GearToolkitContext):
 
         # upload to acquisition in the same session
         acq.upload_file(out_path)
+
+    # provenance: record what produced the file so outputs can be audited later
+    acq.update_file_info(
+        out_fn,
+        {
+            "skullstrip_normalize": {
+                "source_file": os.path.basename(im_file_path),
+                "brain_mask": os.path.basename(mask_file_path),
+                "gear_version": __version__,
+            }
+        },
+    )

@@ -6,6 +6,7 @@ import pytest
 from nibabel.filebasedimages import ImageFileError
 from flywheel import ApiException
 
+from fw_skullstrip_normalize import __version__
 from fw_skullstrip_normalize.main import output_filename, run
 
 
@@ -96,3 +97,28 @@ def test_run_leaves_flywheel_untouched_when_processing_fails(gear):
 
     gear.client.lookup.assert_not_called()  # no empty 'processed' acquisition left behind
     gear.acq.upload_file.assert_not_called()
+
+
+def test_run_records_provenance_on_the_uploaded_file(gear):
+    run(gear.ctx)
+
+    gear.acq.update_file_info.assert_called_once_with(
+        "sub-01_T1w_ss_norm.nii.gz",
+        {
+            "skullstrip_normalize": {
+                "source_file": "sub-01_T1w.nii.gz",
+                "brain_mask": "mask.nii.gz",
+                "gear_version": __version__,
+            }
+        },
+    )
+
+
+def test_run_warns_before_replacing_an_existing_output(gear, caplog):
+    gear.acq.get_file.return_value = object()
+
+    with caplog.at_level("WARNING"):
+        run(gear.ctx)
+
+    assert "already exists" in caplog.text
+    gear.acq.get_file.assert_called_once_with("sub-01_T1w_ss_norm.nii.gz")

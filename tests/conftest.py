@@ -44,6 +44,7 @@ def gear(tmp_path, monkeypatch):
 
     acq = MagicMock(name="processed_acquisition")
     acq.reload.return_value = acq
+    acq.get_file.return_value = None  # no output with this name yet
     # capture what would be uploaded: the file is temporary
     acq.uploaded = {}
 
