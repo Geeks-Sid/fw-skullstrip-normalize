@@ -29,8 +29,9 @@ def skullstrip(img, mask):
     # img_data = np.float32(img_data)
     mask_data = mask.get_fdata()
 
-    # apply brain mask
-    ss_img_data = img_data * mask_data
+    # apply brain mask: any non-zero voxel is brain. np.where, not multiplication, so a
+    # non-binary mask cannot rescale intensities and NaN/inf outside the mask cannot leak in
+    ss_img_data = np.where(mask_data != 0, img_data, 0)
 
     # img_data = np.rint(ss_img_data).astype('int16')
 
