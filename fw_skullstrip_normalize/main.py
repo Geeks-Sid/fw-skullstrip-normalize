@@ -11,6 +11,14 @@ import nibabel as nib
 
 log = logging.getLogger(__name__)
 
+
+def output_filename(in_fn: str, tag: str = "_ss_norm") -> str:
+    """Insert `tag` before the NIfTI extension; refuse anything that is not .nii/.nii.gz."""
+    for ext in (".nii.gz", ".nii"):
+        if in_fn.lower().endswith(ext):
+            return in_fn[: -len(ext)] + tag + in_fn[-len(ext):]
+    raise ValueError(f"Input must be a NIfTI file (.nii or .nii.gz), got: {in_fn}")
+
 def run(gtk_context: GearToolkitContext):
     """Main entrypoint
 
@@ -50,12 +58,7 @@ def run(gtk_context: GearToolkitContext):
 
     new_img = normalize(skullstrip(img, mask))
 
-    in_fn = os.path.basename(im_file_path) # get just the base file name
-    if 'gz' in in_fn.split('.nii')[-1]:
-        file_ending = '.nii.gz'
-    else:
-        file_ending = '.nii'
-    out_fn = in_fn.split('.nii')[0] + '_ss_norm' + file_ending  # append _ss to the original file name
+    out_fn = output_filename(os.path.basename(im_file_path))
 
     # The SDK names the upload after the file on disk (upload_file has no `name` argument),
     # so write it under its final name in a private temp dir that is removed afterwards.

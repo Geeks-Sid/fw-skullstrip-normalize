@@ -1,8 +1,9 @@
 import os
 
 import numpy as np
+import pytest
 
-from fw_skullstrip_normalize.main import run
+from fw_skullstrip_normalize.main import output_filename, run
 
 
 def test_run_masks_then_normalizes_and_uploads(gear):
@@ -29,3 +30,23 @@ def test_run_cleans_up_only_its_own_temp_file(gear):
 
     assert keep.exists()
     assert not os.path.exists(gear.acq.uploaded["path"])
+
+
+@pytest.mark.parametrize(
+    "in_fn, expected",
+    [
+        ("sub-01_T1w.nii.gz", "sub-01_T1w_ss_norm.nii.gz"),
+        ("sub-01_T1w.nii", "sub-01_T1w_ss_norm.nii"),
+        ("SUB.NII.GZ", "SUB_ss_norm.NII.GZ"),
+        # '.nii' inside the name used to truncate it (-> 'sub_ss_norm.nii.gz'), colliding across files
+        ("sub.niilab_T1w.nii.gz", "sub.niilab_T1w_ss_norm.nii.gz"),
+    ],
+)
+def test_output_filename(in_fn, expected):
+    assert output_filename(in_fn) == expected
+
+
+@pytest.mark.parametrize("in_fn", ["scan.mgz", "scan.nii.gz.bak", "scan"])
+def test_output_filename_rejects_non_nifti(in_fn):
+    with pytest.raises(ValueError, match="NIfTI"):
+        output_filename(in_fn)
