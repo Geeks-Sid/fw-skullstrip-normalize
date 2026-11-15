@@ -30,7 +30,7 @@
     },
     "api-key": {
       "base": "api-key",
-      "read-only": true
+      "read-only": false
     }
   },
   "config": {
